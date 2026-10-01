@@ -362,7 +362,7 @@ def main() -> None:
         "--output-dir",
         type=Path,
         default=Path(__file__).resolve().parent / "data",
-        help="Folder for optimized static web assets and Blender inputs",
+        help="Folder for optimized static web assets",
     )
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)

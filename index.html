@@ -4,10 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#15211a">
-    <meta name="description" content="Mapa topográfico interativo com mosaico aéreo, curvas de nível, corpos hídricos, perfis de elevação e modelo 3D.">
+    <meta name="description" content="Mapa topográfico interativo com mosaico aéreo, curvas de nível, corpos hídricos e perfis de elevação.">
     <title>Levantamento topográfico</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
     <style>
       :root {
         color-scheme: light;
@@ -120,38 +119,6 @@
         margin-bottom: 5px;
       }
 
-      .switcher {
-        display: flex;
-        width: fit-content;
-        gap: 4px;
-        flex: 0 0 auto;
-        margin: 0;
-        padding: 2px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: #e8ece7;
-      }
-
-      .switcher button {
-        min-height: 32px;
-        padding: 0 12px;
-        border: 0;
-        border-radius: 6px;
-        background: transparent;
-        color: #4e5a52;
-        font: inherit;
-        font-size: 0.74rem;
-        font-weight: 700;
-        cursor: pointer;
-        touch-action: manipulation;
-      }
-
-      .switcher button[aria-pressed="true"] {
-        background: #fff;
-        color: var(--green);
-        box-shadow: 0 1px 4px #1a2b1e18;
-      }
-
       .panel {
         position: relative;
         height: 0;
@@ -206,7 +173,7 @@
         align-items: center;
         gap: 5px;
         min-width: 0;
-        margin: 0;
+        margin: 0 0 0 auto;
       }
 
       .profile-tools button, .profile-close {
@@ -284,23 +251,6 @@
       .map-message[hidden] { display: none; }
       .map-message.error { color: #962c22; }
 
-      model-viewer {
-        display: block;
-        width: 100%;
-        height: 100%;
-        background:
-          radial-gradient(ellipse at 50% 45%, #e9eee8 0, #dfe6df 72%, #d6dfd7 100%);
-        --poster-color: transparent;
-        --progress-bar-color: #26704c;
-        --progress-bar-height: 3px;
-      }
-
-      model-viewer.loaded::part(default-progress-bar) { display: none; }
-
-      .footer {
-        display: none;
-      }
-
       @media (max-width: 560px) {
         body { padding-right: 7px; padding-left: 7px; }
         main { height: calc(100svh - 12px); }
@@ -316,9 +266,7 @@
         td { font-size: 0.66rem; }
         td small, #area-rows td:first-child { display: none; }
         .map-toolbar { min-height: 34px; gap: 4px; margin-bottom: 4px; }
-        .switcher { gap: 1px; }
-        .switcher button { min-height: 30px; padding: 0 8px; font-size: 0.69rem; }
-        .profile-tools { gap: 3px; }
+        .profile-tools { gap: 3px; margin-left: auto; }
         .profile-tools button { min-height: 32px; padding: 0 7px; font-size: 0.67rem; }
         .profile-tools p { display: none; }
         .panel { min-height: min(350px, calc(100svh - 120px)); border-radius: 8px; }
@@ -339,7 +287,7 @@
       <header>
         <p class="eyebrow">Levantamento topográfico</p>
         <h1>Terreno e curvas de nível</h1>
-        <p class="subtitle">Mosaico aéreo, curvas de nível, corpos hídricos e superfície 3D · SIRGAS 2000 / UTM 25S</p>
+        <p class="subtitle">Mosaico aéreo, curvas de nível e corpos hídricos · SIRGAS 2000 / UTM 25S</p>
       </header>
 
       <section class="report" aria-labelledby="report-title">
@@ -360,11 +308,6 @@
       </section>
 
       <div class="map-toolbar">
-        <nav class="switcher" aria-label="Tipo de visualização">
-          <button type="button" data-panel="map-panel" aria-pressed="true">Mapa</button>
-          <button type="button" data-panel="terrain-panel" aria-pressed="false">Modelo 3D</button>
-        </nav>
-
         <div class="profile-tools" aria-label="Ferramenta de perfil de elevação">
           <button id="profile-start" class="primary" type="button">Traçar perfil</button>
           <button id="profile-finish" type="button" hidden disabled>Concluir</button>
@@ -388,29 +331,6 @@
         </div>
       </section>
 
-      <section id="terrain-panel" class="panel" aria-label="Modelo tridimensional do terreno" hidden>
-        <model-viewer
-          id="terrain"
-          src="./data/terreno_cm.glb"
-          alt="Modelo tridimensional da superfície do terreno com mosaico aéreo"
-          camera-controls
-          camera-orbit="0deg 55deg 1300m"
-          min-camera-orbit="auto auto 80m"
-          touch-action="pan-y"
-          shadow-intensity="0.55"
-          exposure="0.9"
-          tone-mapping="neutral"
-          interaction-prompt="auto"
-          loading="lazy">
-        </model-viewer>
-        <p id="terrain-message" class="map-message" role="status">Carregando modelo 3D…</p>
-      </section>
-
-      <footer class="footer">
-        <span>Curvas pretas: aproxime e toque para consultar ELEV; rótulos aparecem ao aproximar.</span>
-        <span>Modelo 3D com relevo vertical 2×.</span>
-        <span>Pinça para zoom · arraste para mover ou orbitar.</span>
-      </footer>
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -418,8 +338,6 @@
       const dataUrl = (name) => `./data/${name}`;
       const areaRows = document.querySelector("#area-rows");
       const mapMessage = document.querySelector("#map-message");
-      const terrain = document.querySelector("#terrain");
-      const terrainMessage = document.querySelector("#terrain-message");
       const profileStart = document.querySelector("#profile-start");
       const profileFinish = document.querySelector("#profile-finish");
       const profileCancel = document.querySelector("#profile-cancel");
@@ -444,21 +362,6 @@
       const pageTitle = query.get("title") || "Terreno e curvas de nível";
       document.title = `${pageTitle} | Levantamento topográfico`;
       document.querySelector("h1").textContent = pageTitle;
-      if (query.has("model")) {
-        try {
-          const modelUrl = new URL(query.get("model"), window.location.href);
-          if (!["https:", "http:"].includes(modelUrl.protocol)) {
-            throw new Error("O modelo precisa usar uma URL HTTP ou HTTPS.");
-          }
-          terrain.src = modelUrl.href;
-          terrain.setAttribute("alt", `${pageTitle}, modelo 3D interativo`);
-        } catch (error) {
-          terrainMessage.classList.add("error");
-          terrainMessage.textContent = error instanceof Error
-            ? error.message
-            : "URL do modelo inválida.";
-        }
-      }
 
       function renderAreaTable(stats) {
         const parts = stats.parts || [];
@@ -744,9 +647,6 @@
         }
 
         profileStart.addEventListener("click", () => {
-          if (!mapPanelIsVisible()) {
-            document.querySelector('[data-panel="map-panel"]').click();
-          }
           profileLayer.clearLayers();
           profileCoordinates = [];
           profileResult.hidden = true;
@@ -813,10 +713,6 @@
             });
           }
         });
-
-        function mapPanelIsVisible() {
-          return !document.querySelector("#map-panel").hidden;
-        }
 
         function stopProfileDrawing() {
           isDrawingProfile = false;
@@ -1021,29 +917,6 @@
         });
         return map;
       }
-
-      document.querySelectorAll(".switcher button").forEach((button) => {
-        button.addEventListener("click", () => {
-          document.querySelectorAll(".switcher button").forEach((tab) => {
-            tab.setAttribute("aria-pressed", String(tab === button));
-          });
-          document.querySelectorAll(".panel").forEach((panel) => {
-            panel.hidden = panel.id !== button.dataset.panel;
-          });
-          if (button.dataset.panel === "map-panel" && window.siteMap) {
-            window.setTimeout(() => window.siteMap.invalidateSize(), 0);
-          }
-        });
-      });
-
-      terrain.addEventListener("load", () => {
-        terrainMessage.hidden = true;
-        terrain.classList.add("loaded");
-      });
-      terrain.addEventListener("error", () => {
-        terrainMessage.classList.add("error");
-        terrainMessage.textContent = "Não foi possível carregar o modelo 3D.";
-      });
 
       loadMap()
         .catch((error) => {
