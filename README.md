@@ -4,6 +4,8 @@ Página estática para exibir modelos `.glb` interativos em desktop e celular.
 O modelo Mari1 é o exemplo padrão; nenhum framework ou etapa de build é
 necessário.
 
+Visualização publicada: <https://visualizador-3d-terrenos.vercel.app/>.
+
 ## Ver localmente
 
 Abra um terminal nesta pasta e execute:
