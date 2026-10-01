@@ -2,16 +2,24 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#101914">
-    <title>Visualizador 3D</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#15211a">
+    <meta name="description" content="Mapa topográfico interativo com mosaico aéreo, curvas de nível, corpos hídricos, perfis de elevação e modelo 3D.">
+    <title>Levantamento topográfico</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
     <style>
       :root {
-        color-scheme: dark;
+        color-scheme: light;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #101914;
-        color: #f2f5f1;
+        color: #18231d;
+        background: #f2f4f0;
+        font-synthesis: none;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        --green: #255c43;
+        --muted: #627067;
+        --line: #dde3dc;
       }
 
       * { box-sizing: border-box; }
@@ -20,179 +28,944 @@
         min-width: 320px;
         min-height: 100vh;
         margin: 0;
-        background:
-          radial-gradient(ellipse at 50% 42%, #263a2b 0, #17231b 42%, #101914 78%);
+        padding: max(16px, env(safe-area-inset-top)) 16px max(22px, env(safe-area-inset-bottom));
       }
 
-      main {
-        display: flex;
-        width: min(1200px, 100%);
-        min-height: 100vh;
-        margin: 0 auto;
-        padding: 28px clamp(16px, 4vw, 48px) 22px;
-        flex-direction: column;
-      }
+      main { width: min(1120px, 100%); margin: 0 auto; }
 
-      header { padding: 4px 2px 18px; }
+      header { padding: 4px 2px 16px; }
 
       .eyebrow {
-        margin: 0 0 7px;
-        color: #a8c4a6;
-        font-size: 0.74rem;
-        font-weight: 700;
-        letter-spacing: 0.14em;
+        margin: 0 0 6px;
+        color: var(--green);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.13em;
         text-transform: uppercase;
       }
 
       h1 {
         margin: 0;
-        font-size: clamp(1.5rem, 3vw, 2.15rem);
-        font-weight: 650;
-        letter-spacing: -0.035em;
+        font-size: clamp(1.4rem, 4vw, 2.05rem);
+        font-weight: 720;
+        letter-spacing: -0.04em;
       }
 
-      .hint {
-        margin: 8px 0 0;
-        color: #bdc9be;
-        font-size: 0.95rem;
-      }
+      .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 0.91rem; }
 
-      .viewer {
-        position: relative;
-        flex: 1;
-        min-height: min(68vh, 680px);
+      .report {
+        margin: 0 0 14px;
         overflow: hidden;
-        border: 1px solid #ffffff1a;
-        border-radius: 18px;
-        background: #18251c;
-        box-shadow: 0 22px 70px #0005;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 2px 9px #1a2b1e08;
       }
+
+      .report-heading {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 16px 8px;
+      }
+
+      .report-heading h2 { margin: 0; font-size: 0.97rem; }
+      .report-heading span { color: var(--muted); font-size: 0.75rem; }
+
+      .table-wrap { overflow-x: auto; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-variant-numeric: tabular-nums;
+      }
+
+      th, td { padding: 9px 16px; border-top: 1px solid #edf0ec; }
+      th { color: var(--muted); font-size: 0.7rem; font-weight: 700; }
+      td { font-size: 0.84rem; }
+      td:nth-child(n+2), th:nth-child(n+2) { text-align: right; }
+      td small { display: block; margin-top: 2px; color: var(--muted); font-size: 0.74rem; }
+      tbody tr:last-child td { font-weight: 750; background: #f7f9f6; }
+
+      .switcher {
+        display: flex;
+        width: fit-content;
+        gap: 4px;
+        margin: 0 0 10px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: #e8ece7;
+      }
+
+      .switcher button {
+        min-height: 42px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #4e5a52;
+        font: inherit;
+        font-size: 0.86rem;
+        font-weight: 700;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+
+      .switcher button[aria-pressed="true"] {
+        background: #fff;
+        color: var(--green);
+        box-shadow: 0 1px 4px #1a2b1e18;
+      }
+
+      .panel {
+        position: relative;
+        height: clamp(440px, 62svh, 760px);
+        overflow: hidden;
+        border: 1px solid #d8dfd8;
+        border-radius: 15px;
+        background: #e6ebe5;
+        box-shadow: 0 8px 28px #1b2d2010;
+      }
+
+      .panel[hidden] { display: none; }
+
+      #map { width: 100%; height: 100%; background: #e7ebe5; }
+      .leaflet-container { font: inherit; }
+      .leaflet-control-zoom a { width: 42px !important; height: 42px !important; line-height: 42px !important; }
+      .leaflet-control-attribution { font-size: 10px !important; }
+
+      .layer-control {
+        display: grid;
+        gap: 8px;
+        min-width: 155px;
+        padding: 11px 12px;
+        border: 1px solid #1a271d1c;
+        border-radius: 11px;
+        background: #fffffff2;
+        box-shadow: 0 2px 9px #17251b25;
+        font-size: 0.78rem;
+      }
+
+      .layer-control strong { margin-bottom: 1px; font-size: 0.78rem; }
+      .layer-control label { display: flex; align-items: center; gap: 8px; min-height: 24px; cursor: pointer; }
+      .layer-control input { width: 18px; height: 18px; margin: 0; accent-color: var(--green); }
+
+      .contour-label {
+        padding: 1px 4px;
+        border: 0;
+        background: #fffdf2dd;
+        color: #111;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1.3;
+        text-shadow: 0 1px 1px #fff;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      .profile-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 10px;
+      }
+
+      .profile-tools button, .profile-close {
+        min-height: 42px;
+        padding: 0 13px;
+        border: 1px solid #cbd5cb;
+        border-radius: 9px;
+        background: #fff;
+        color: #26382b;
+        font: inherit;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+
+      .profile-tools button.primary {
+        border-color: var(--green);
+        background: var(--green);
+        color: #fff;
+      }
+
+      .profile-tools button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .profile-tools p {
+        flex: 1 1 220px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .profile-result { padding-bottom: 12px; }
+      .profile-result[hidden] { display: none; }
+      .profile-result .report-heading { align-items: center; }
+      .profile-close { min-height: 36px; padding: 0 10px; }
+      #profile-summary { margin: 0 16px 8px; color: var(--muted); font-size: 0.8rem; }
+      #profile-chart { padding: 0 8px; }
+      #profile-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+      #profile-chart text { font-family: inherit; font-size: 13px; fill: #536056; }
+
+      .profile-path {
+        stroke: #a318b5;
+        stroke-dasharray: 8 6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .map-message {
+        position: absolute;
+        z-index: 1000;
+        top: 50%;
+        left: 50%;
+        max-width: calc(100% - 40px);
+        padding: 10px 14px;
+        transform: translate(-50%, -50%);
+        border: 1px solid #d8dfd8;
+        border-radius: 10px;
+        background: #fff;
+        color: #344238;
+        box-shadow: 0 4px 18px #1113;
+        font-size: 0.85rem;
+        text-align: center;
+      }
+
+      .map-message[hidden] { display: none; }
+      .map-message.error { color: #962c22; }
 
       model-viewer {
         display: block;
         width: 100%;
         height: 100%;
-        min-height: min(68vh, 680px);
+        background:
+          radial-gradient(ellipse at 50% 45%, #e9eee8 0, #dfe6df 72%, #d6dfd7 100%);
         --poster-color: transparent;
-        --progress-bar-color: #b3d29b;
+        --progress-bar-color: #26704c;
         --progress-bar-height: 3px;
       }
 
       model-viewer.loaded::part(default-progress-bar) { display: none; }
 
-      #status {
-        position: absolute;
-        right: 14px;
-        bottom: 12px;
-        left: 14px;
-        width: fit-content;
-        margin: 0 auto;
-        padding: 8px 12px;
-        border: 1px solid #ffffff1a;
-        border-radius: 999px;
-        background: #101914d9;
-        color: #e2e9e1;
-        font-size: 0.82rem;
-        pointer-events: none;
-      }
-
-      #status[hidden] { display: none; }
-      #status.error { color: #ffc0b8; }
-
-      footer {
+      .footer {
         display: flex;
+        flex-wrap: wrap;
         justify-content: space-between;
-        gap: 12px;
-        padding: 14px 2px 0;
-        color: #aebbb0;
-        font-size: 0.8rem;
+        gap: 7px 16px;
+        padding: 11px 2px 0;
+        color: var(--muted);
+        font-size: 0.76rem;
       }
 
       @media (max-width: 560px) {
-        main { padding-top: 20px; }
-        .viewer, model-viewer { min-height: 68vh; }
-        footer { flex-direction: column; gap: 5px; }
+        body { padding-right: 10px; padding-left: 10px; }
+        header { padding-bottom: 12px; }
+        .report { margin-bottom: 10px; }
+        .report-heading { padding: 10px 11px 7px; }
+        th, td { padding: 8px 9px; }
+        td, th { font-size: 0.72rem; }
+        td small { font-size: 0.67rem; }
+        .switcher { width: 100%; }
+        .switcher button { flex: 1; }
+        .panel { height: min(64svh, 680px); min-height: 390px; border-radius: 12px; }
+        .leaflet-control-zoom a { width: 46px !important; height: 46px !important; line-height: 46px !important; }
+        .layer-control { min-width: 145px; gap: 6px; padding: 9px 10px; font-size: 0.75rem; }
+        .footer { font-size: 0.71rem; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; }
       }
     </style>
   </head>
   <body>
     <main>
       <header>
-        <p class="eyebrow">Visualizador 3D</p>
-        <h1 id="page-title">Modelo em 3D</h1>
-        <p class="hint">Arraste para orbitar · role para aproximar · botão direito para deslocar</p>
+        <p class="eyebrow">Levantamento topográfico</p>
+        <h1>Terreno e curvas de nível</h1>
+        <p class="subtitle">Mosaico aéreo, curvas de nível, corpos hídricos e superfície 3D · SIRGAS 2000 / UTM 25S</p>
       </header>
 
-      <section class="viewer" aria-label="Visualizador de modelo 3D">
-        <model-viewer
-          id="terrain"
-          camera-controls
-          camera-orbit="0deg 65deg 4300m"
-          min-camera-orbit="auto auto 2000m"
-          touch-action="pan-y"
-          shadow-intensity="0"
-          exposure="1"
-          tone-mapping="neutral"
-          interaction-prompt="auto"
-          loading="eager">
-        </model-viewer>
-        <p id="status" role="status">Carregando terreno e mosaico…</p>
+      <section class="report" aria-labelledby="report-title">
+        <div class="report-heading">
+          <h2 id="report-title">Quadro de áreas e perímetros</h2>
+          <span>Medidas planas · EPSG:31985</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Poligonal</th><th>Área</th><th>Perímetro</th></tr>
+            </thead>
+            <tbody id="area-rows">
+              <tr><td colspan="3">Calculando medidas…</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <footer>
-        <span id="model-description">Modelo 3D interativo</span>
-        <span>Controles: mouse, toque ou trackpad</span>
+      <nav class="switcher" aria-label="Tipo de visualização">
+        <button type="button" data-panel="map-panel" aria-pressed="true">Mapa</button>
+        <button type="button" data-panel="terrain-panel" aria-pressed="false">Modelo 3D</button>
+      </nav>
+
+      <div class="profile-tools" aria-label="Ferramenta de perfil de elevação">
+        <button id="profile-start" class="primary" type="button">Traçar perfil</button>
+        <button id="profile-finish" type="button" hidden disabled>Concluir</button>
+        <button id="profile-cancel" type="button" hidden>Cancelar</button>
+        <p id="profile-status" role="status">Toque em “Traçar perfil” para marcar pontos no mapa.</p>
+      </div>
+
+      <section id="map-panel" class="panel" aria-label="Mapa do levantamento">
+        <div id="map"></div>
+        <p id="map-message" class="map-message" role="status">Carregando as camadas do mapa…</p>
+      </section>
+
+      <section id="profile-result" class="report profile-result" aria-labelledby="profile-title" hidden>
+        <div class="report-heading">
+          <h2 id="profile-title">Perfil de elevação</h2>
+          <button id="profile-close" class="profile-close" type="button" aria-label="Fechar perfil">Fechar</button>
+        </div>
+        <p id="profile-summary"></p>
+        <div id="profile-chart"></div>
+      </section>
+
+      <section id="terrain-panel" class="panel" aria-label="Modelo tridimensional do terreno" hidden>
+        <model-viewer
+          id="terrain"
+          src="./data/terreno_cm.glb"
+          alt="Modelo tridimensional da superfície do terreno com mosaico aéreo"
+          camera-controls
+          camera-orbit="0deg 55deg 1300m"
+          min-camera-orbit="auto auto 80m"
+          touch-action="pan-y"
+          shadow-intensity="0.55"
+          exposure="0.9"
+          tone-mapping="neutral"
+          interaction-prompt="auto"
+          loading="lazy">
+        </model-viewer>
+        <p id="terrain-message" class="map-message" role="status">Carregando modelo 3D…</p>
+      </section>
+
+      <footer class="footer">
+        <span>Curvas pretas: aproxime e toque para consultar ELEV; rótulos aparecem ao aproximar.</span>
+        <span>Modelo 3D com relevo vertical 2×.</span>
+        <span>Pinça para zoom · arraste para mover ou orbitar.</span>
       </footer>
     </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-      const viewer = document.querySelector("#terrain");
-      const status = document.querySelector("#status");
-      const params = new URLSearchParams(window.location.search);
-      const modelUrl = params.get("model") || "./terreno_mari1.glb";
-      const pageTitle = params.get("title") || "Mari1 — visualização 3D";
-      let loadingTimer = null;
-
-      const finishLoading = () => {
-        status.hidden = true;
-        viewer.classList.add("loaded");
-        if (loadingTimer !== null) window.clearInterval(loadingTimer);
-      };
-
-      document.title = `${pageTitle} | Visualizador 3D`;
-      document.querySelector("#page-title").textContent = pageTitle;
-      viewer.setAttribute("alt", `${pageTitle}, modelo tridimensional interativo`);
-
-      try {
-        const parsedModelUrl = new URL(modelUrl, window.location.href);
-        if (!["http:", "https:"].includes(parsedModelUrl.protocol)) {
-          throw new Error("O modelo precisa usar um endereço HTTP ou HTTPS.");
+      const dataUrl = (name) => `./data/${name}`;
+      const areaRows = document.querySelector("#area-rows");
+      const mapMessage = document.querySelector("#map-message");
+      const terrain = document.querySelector("#terrain");
+      const terrainMessage = document.querySelector("#terrain-message");
+      const profileStart = document.querySelector("#profile-start");
+      const profileFinish = document.querySelector("#profile-finish");
+      const profileCancel = document.querySelector("#profile-cancel");
+      const profileStatus = document.querySelector("#profile-status");
+      const profileResult = document.querySelector("#profile-result");
+      const profileSummary = document.querySelector("#profile-summary");
+      const profileChart = document.querySelector("#profile-chart");
+      const profileClose = document.querySelector("#profile-close");
+      const areaFormatter = new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      const hectareFormatter = new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 4,
+        maximumFractionDigits: 4,
+      });
+      const lengthFormatter = new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      const query = new URLSearchParams(window.location.search);
+      const pageTitle = query.get("title") || "Terreno e curvas de nível";
+      document.title = `${pageTitle} | Levantamento topográfico`;
+      document.querySelector("h1").textContent = pageTitle;
+      if (query.has("model")) {
+        try {
+          const modelUrl = new URL(query.get("model"), window.location.href);
+          if (!["https:", "http:"].includes(modelUrl.protocol)) {
+            throw new Error("O modelo precisa usar uma URL HTTP ou HTTPS.");
+          }
+          terrain.src = modelUrl.href;
+          terrain.setAttribute("alt", `${pageTitle}, modelo 3D interativo`);
+        } catch (error) {
+          terrainMessage.classList.add("error");
+          terrainMessage.textContent = error instanceof Error
+            ? error.message
+            : "URL do modelo inválida.";
         }
-        viewer.src = parsedModelUrl.href;
-        if (modelUrl !== "./terreno_mari1.glb") {
-          document.querySelector("#model-description").textContent =
-            "Modelo 3D carregado por endereço URL";
-        }
-      } catch (error) {
-        status.classList.add("error");
-        status.textContent =
-          error instanceof Error ? error.message : "Endereço do modelo inválido.";
       }
 
-      loadingTimer = window.setInterval(() => {
-        if (viewer.loaded) {
-          finishLoading();
-        }
-      }, 500);
+      function renderAreaTable(stats) {
+        const parts = stats.parts || [];
+        const rows = parts.map((part, index) => {
+          if (parts.length === 1) return "";
+          const title = parts.length === 1 ? "Poligonal" : `Parte ${index + 1}`;
+          return `<tr><td>${title}</td><td>${areaFormatter.format(part.area_m2)} m²<small>${hectareFormatter.format(part.area_m2 / 10000)} ha</small></td><td>${lengthFormatter.format(part.perimeter_m)} m</td></tr>`;
+        }).filter(Boolean);
+        const totalTitle = parts.length > 1 ? "Total" : "Poligonal";
+        rows.push(
+          `<tr><td>${totalTitle}</td><td>${areaFormatter.format(stats.area_m2)} m²<small>${hectareFormatter.format(stats.area_m2 / 10000)} ha</small></td><td>${lengthFormatter.format(stats.perimeter_m)} m</td></tr>`
+        );
+        areaRows.innerHTML = rows.join("");
+      }
 
-      viewer.addEventListener("load", finishLoading);
-      viewer.addEventListener("error", () => {
-        status.hidden = false;
-        status.classList.add("error");
-        status.textContent =
-          "Não foi possível carregar o modelo. Confira o endereço e as permissões CORS.";
-        window.clearInterval(loadingTimer);
+      function formatElevation(value) {
+        return `${new Intl.NumberFormat("pt-BR", {
+          minimumFractionDigits: Number.isInteger(value) ? 0 : 1,
+          maximumFractionDigits: 1,
+        }).format(value)} m`;
+      }
+
+      function lineMidpoint(coordinates) {
+        let length = 0;
+        const segmentLengths = [];
+        for (let index = 1; index < coordinates.length; index += 1) {
+          const first = coordinates[index - 1];
+          const second = coordinates[index];
+          const segmentLength = Math.hypot(
+            second[0] - first[0],
+            second[1] - first[1]
+          );
+          segmentLengths.push(segmentLength);
+          length += segmentLength;
+        }
+
+        let traversed = 0;
+        const halfway = length / 2;
+        for (let index = 0; index < segmentLengths.length; index += 1) {
+          const first = coordinates[index];
+          const second = coordinates[index + 1];
+          const segmentLength = segmentLengths[index];
+          if (traversed + segmentLength >= halfway && segmentLength > 0) {
+            const fraction = (halfway - traversed) / segmentLength;
+            return [
+              first[1] + (second[1] - first[1]) * fraction,
+              first[0] + (second[0] - first[0]) * fraction,
+            ];
+          }
+          traversed += segmentLength;
+        }
+        const last = coordinates[coordinates.length - 1];
+        return [last[1], last[0]];
+      }
+
+      async function loadMap() {
+        const [contours, boundary, hydrology, stats, dsmMetadata] = await Promise.all(
+          [
+            "contours.geojson",
+            "boundary.geojson",
+            "hydro.geojson",
+            "site-stats.json",
+            "dsm_cm.json",
+          ].map((file) =>
+            fetch(dataUrl(file)).then((response) => {
+              if (!response.ok) throw new Error(`Falha ao carregar ${file}.`);
+              return response.json();
+            })
+          )
+        );
+        renderAreaTable(stats);
+
+        const map = L.map("map", {
+          crs: L.CRS.Simple,
+          zoomSnap: 0.25,
+          zoomDelta: 0.5,
+          minZoom: -3,
+          maxZoom: 6,
+          renderer: L.canvas(),
+          preferCanvas: true,
+          zoomControl: true,
+          attributionControl: false,
+          maxBoundsViscosity: 0.75,
+        });
+        const mosaicBounds = stats.mosaic_bounds;
+        const fullBounds = L.latLngBounds(
+          [mosaicBounds.bottom, mosaicBounds.left],
+          [mosaicBounds.top, mosaicBounds.right]
+        );
+        map.setMaxBounds(fullBounds.pad(0.25));
+        L.control.attribution({ prefix: false }).addTo(map)
+          .addAttribution("Coordenadas locais · EPSG:31985");
+
+        const mosaicLayer = L.imageOverlay(dataUrl("mosaico.webp"), fullBounds, {
+          opacity: 1,
+          interactive: false,
+        }).addTo(map);
+        const hydrologyLayer = L.geoJSON(hydrology, {
+          style: {
+            color: "#0878d1",
+            weight: 2.5,
+            opacity: 1,
+            fillColor: "#36a8f2",
+            fillOpacity: 0.15,
+          },
+        }).addTo(map);
+        const boundaryLayer = L.geoJSON(boundary, {
+          style: {
+            color: "#e31b23",
+            weight: 4,
+            opacity: 1,
+            fillColor: "#e31b23",
+            fillOpacity: 0,
+          },
+        }).addTo(map);
+        const contourLayer = L.geoJSON(contours, {
+          style: () => ({
+            color: "#111",
+            weight: 1,
+            opacity: 0.88,
+          }),
+        }).addTo(map);
+        const contourLevels = [...new Set(
+          contours.features
+            .map((feature) => Number(feature.properties?.ELEV))
+            .filter(Number.isFinite)
+        )].sort((first, second) => first - second);
+        const contourInterval = contourLevels.slice(1).reduce(
+          (smallest, level, index) => Math.min(smallest, level - contourLevels[index]),
+          Infinity
+        );
+        const labelLayer = L.layerGroup();
+        const profileLayer = L.layerGroup().addTo(map);
+        let isDrawingProfile = false;
+        let profileCoordinates = [];
+        let profileRasterPromise;
+        let profileLine;
+
+        for (const feature of contours.features) {
+          const coordinates = feature.geometry.coordinates;
+          if (coordinates.length < 2) continue;
+          const marker = L.marker(lineMidpoint(coordinates), {
+            icon: L.divIcon({
+              className: "contour-label",
+              html: formatElevation(Number(feature.properties.ELEV)),
+              iconSize: null,
+            }),
+            interactive: false,
+            keyboard: false,
+          });
+          labelLayer.addLayer(marker);
+        }
+
+        const layerControl = L.control({ position: "topright" });
+        layerControl.onAdd = () => {
+          const container = L.DomUtil.create("div", "layer-control");
+          container.setAttribute("aria-label", "Camadas do mapa");
+          container.innerHTML = `
+            <strong>Camadas</strong>
+            <label><input type="checkbox" data-layer="mosaic" checked> Mosaico</label>
+            <label><input type="checkbox" data-layer="contours" checked> Curvas ELEV</label>
+            <label><input type="checkbox" data-layer="hydrology" checked> Corpos hídricos</label>
+            <label><input type="checkbox" data-layer="boundary" checked> Poligonal</label>`;
+          L.DomEvent.disableClickPropagation(container);
+          L.DomEvent.disableScrollPropagation(container);
+          container.addEventListener("change", (event) => {
+            const checkbox = event.target.closest("input[data-layer]");
+            if (!checkbox) return;
+            const layers = {
+              mosaic: mosaicLayer,
+              contours: contourLayer,
+              hydrology: hydrologyLayer,
+              boundary: boundaryLayer,
+            };
+            if (checkbox.checked) map.addLayer(layers[checkbox.dataset.layer]);
+            else map.removeLayer(layers[checkbox.dataset.layer]);
+            updateLabels();
+          });
+          return container;
+        };
+        layerControl.addTo(map);
+
+        const scaleControl = L.control({ position: "bottomleft" });
+        scaleControl.onAdd = () => {
+          const container = L.DomUtil.create("div", "leaflet-control");
+          container.style.cssText = "padding:4px 7px;background:#fffE;border:1px solid #777;border-radius:3px;color:#222;font-size:11px;font-weight:700";
+          const bar = document.createElement("div");
+          bar.style.cssText = "height:5px;border:1px solid #222;border-top:0;margin-bottom:2px";
+          const label = document.createElement("span");
+          container.append(bar, label);
+          const update = () => {
+            const center = map.getSize().y / 2;
+            const first = map.containerPointToLatLng([20, center]);
+            const second = map.containerPointToLatLng([120, center]);
+            const metersPerPixel = Math.abs(second.lng - first.lng) / 100;
+            const targetMeters = metersPerPixel * 100;
+            const power = 10 ** Math.floor(Math.log10(targetMeters));
+            const leading = targetMeters / power;
+            const step = (leading >= 5 ? 5 : leading >= 2 ? 2 : 1) * power;
+            const pixels = step / metersPerPixel;
+            bar.style.width = `${pixels}px`;
+            label.textContent = step >= 1000
+              ? `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(step / 1000)} km`
+              : `${Math.round(step)} m`;
+          };
+          map.on("zoomend moveend", update);
+          window.setTimeout(update, 0);
+          return container;
+        };
+        scaleControl.addTo(map);
+
+        const updateLabels = () => {
+          const checkbox = document.querySelector('[data-layer="contours"]');
+          if (checkbox?.checked && map.getZoom() >= 2) {
+            map.addLayer(labelLayer);
+          } else {
+            map.removeLayer(labelLayer);
+          }
+        };
+        map.on("zoomend", updateLabels);
+        map.fitBounds(boundaryLayer.getBounds(), { padding: [26, 26] });
+        window.siteMap = map;
+
+        map.on("click", (event) => {
+          if (isDrawingProfile) {
+            profileCoordinates.push([event.latlng.lng, event.latlng.lat]);
+            profileLine.setLatLngs(profileCoordinates.map(([x, y]) => [y, x]));
+            profileFinish.disabled = profileCoordinates.length < 2;
+            profileStatus.textContent = `${profileCoordinates.length} pontos marcados. Adicione mais pontos ou conclua o perfil.`;
+            return;
+          }
+          if (!map.hasLayer(contourLayer)) return;
+          showNearestContourElevation(event.latlng);
+        });
+
+        function showNearestContourElevation(latlng) {
+          const pixelScale = map.getZoomScale(map.getZoom(), 0);
+          if (contourInterval * pixelScale < 12) {
+            L.popup()
+              .setLatLng(latlng)
+              .setContent("Aproxime o mapa para selecionar uma curva com precisão.")
+              .openOn(map);
+            return;
+          }
+
+          const x = latlng.lng;
+          const y = latlng.lat;
+          const maximumDistance = 8 / pixelScale;
+          let nearestDistanceSquared = maximumDistance * maximumDistance;
+          let nearestElevation = null;
+          for (const feature of contours.features) {
+            const coordinates = feature.geometry.coordinates;
+            for (let index = 1; index < coordinates.length; index += 1) {
+              const first = coordinates[index - 1];
+              const second = coordinates[index];
+              const dx = second[0] - first[0];
+              const dy = second[1] - first[1];
+              const lengthSquared = dx * dx + dy * dy;
+              const fraction = lengthSquared
+                ? Math.max(0, Math.min(
+                  1,
+                  ((x - first[0]) * dx + (y - first[1]) * dy) / lengthSquared
+                ))
+                : 0;
+              const offsetX = x - (first[0] + fraction * dx);
+              const offsetY = y - (first[1] + fraction * dy);
+              const distanceSquared = offsetX * offsetX + offsetY * offsetY;
+              if (distanceSquared < nearestDistanceSquared) {
+                nearestDistanceSquared = distanceSquared;
+                nearestElevation = Number(feature.properties.ELEV);
+              }
+            }
+          }
+
+          if (nearestElevation === null) {
+            map.closePopup();
+            return;
+          }
+          L.popup()
+            .setLatLng(latlng)
+            .setContent(`ELEV: ${formatElevation(nearestElevation)}`)
+            .openOn(map);
+        }
+
+        profileStart.addEventListener("click", () => {
+          if (!mapPanelIsVisible()) {
+            document.querySelector('[data-panel="map-panel"]').click();
+          }
+          profileLayer.clearLayers();
+          profileCoordinates = [];
+          profileResult.hidden = true;
+          isDrawingProfile = true;
+          profileLine = L.polyline([], {
+            className: "profile-path",
+            color: "#a318b5",
+            weight: 3,
+          }).addTo(profileLayer);
+          map.doubleClickZoom.disable();
+          map.getContainer().style.cursor = "crosshair";
+          profileStart.disabled = true;
+          profileFinish.hidden = false;
+          profileFinish.disabled = true;
+          profileCancel.hidden = false;
+          profileStatus.textContent = "Toque no mapa para marcar o início, o fim e os pontos intermediários.";
+        });
+
+        profileFinish.addEventListener("click", async () => {
+          if (profileCoordinates.length < 2) return;
+          stopProfileDrawing();
+          profileStatus.textContent = "Calculando o perfil de elevação…";
+          profileFinish.disabled = true;
+          try {
+            profileRasterPromise ||= loadProfileRaster(dsmMetadata.profile_dem);
+            const raster = await profileRasterPromise;
+            const samples = sampleProfile(profileCoordinates, raster);
+            renderProfileChart(samples);
+            profileStatus.textContent = "Perfil calculado. Toque em “Traçar perfil” para criar outro.";
+          } catch (error) {
+            profileStatus.textContent = error instanceof Error
+              ? error.message
+              : "Não foi possível calcular o perfil.";
+            console.error(error);
+          } finally {
+            resetProfileButtons();
+          }
+        });
+
+        profileCancel.addEventListener("click", () => {
+          stopProfileDrawing();
+          profileLayer.clearLayers();
+          profileStatus.textContent = "Traçado cancelado. Toque em “Traçar perfil” para começar novamente.";
+          resetProfileButtons();
+        });
+
+        profileClose.addEventListener("click", () => {
+          profileResult.hidden = true;
+        });
+
+        function mapPanelIsVisible() {
+          return !document.querySelector("#map-panel").hidden;
+        }
+
+        function stopProfileDrawing() {
+          isDrawingProfile = false;
+          map.doubleClickZoom.enable();
+          map.getContainer().style.cursor = "";
+        }
+
+        function resetProfileButtons() {
+          profileStart.disabled = false;
+          profileFinish.hidden = true;
+          profileFinish.disabled = true;
+          profileCancel.hidden = true;
+        }
+
+        function loadProfileRaster(metadata) {
+          if (!metadata) {
+            return Promise.reject(new Error("Dados do DSM para perfil não encontrados."));
+          }
+          return new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = metadata.width;
+              canvas.height = metadata.height;
+              const context = canvas.getContext("2d", { willReadFrequently: true });
+              if (!context) {
+                reject(new Error("Não foi possível preparar os dados do perfil."));
+                return;
+              }
+              context.imageSmoothingEnabled = false;
+              context.drawImage(image, 0, 0);
+              resolve({ metadata, pixels: context.getImageData(
+                0, 0, metadata.width, metadata.height
+              ).data });
+            };
+            image.onerror = () => reject(new Error("Não foi possível carregar o DSM para o perfil."));
+            image.src = dataUrl("profile-dem.png");
+          });
+        }
+
+        function elevationAt(easting, northing, raster) {
+          const { metadata, pixels } = raster;
+          const column = Math.round(
+            (easting - metadata.origin_x) / metadata.res_x - 0.5
+          );
+          const row = Math.round(
+            (northing - metadata.origin_y) / metadata.res_y - 0.5
+          );
+          if (column < 0 || column >= metadata.width || row < 0 || row >= metadata.height) {
+            return null;
+          }
+          const offset = (row * metadata.width + column) * 4;
+          if (pixels[offset + 2] < 128) return null;
+          const encoded = (pixels[offset] << 8) | pixels[offset + 1];
+          return metadata.z_min + (encoded / 65535) * (metadata.z_max - metadata.z_min);
+        }
+
+        function sampleProfile(coordinates, raster) {
+          const segmentLengths = [];
+          let totalLength = 0;
+          for (let index = 1; index < coordinates.length; index += 1) {
+            const [x1, y1] = coordinates[index - 1];
+            const [x2, y2] = coordinates[index];
+            const length = Math.hypot(x2 - x1, y2 - y1);
+            segmentLengths.push(length);
+            totalLength += length;
+          }
+          if (!totalLength) throw new Error("Marque pontos separados para traçar o perfil.");
+
+          const sampleCount = Math.min(2000, Math.max(2, Math.ceil(totalLength / 1.5) + 1));
+          const samples = [];
+          let segmentIndex = 0;
+          let segmentStart = 0;
+          for (let index = 0; index < sampleCount; index += 1) {
+            const distance = totalLength * index / (sampleCount - 1);
+            while (
+              segmentIndex < segmentLengths.length - 1
+              && segmentStart + segmentLengths[segmentIndex] < distance
+            ) {
+              segmentStart += segmentLengths[segmentIndex];
+              segmentIndex += 1;
+            }
+            const segmentLength = segmentLengths[segmentIndex];
+            const fraction = segmentLength
+              ? Math.min(1, (distance - segmentStart) / segmentLength)
+              : 0;
+            const first = coordinates[segmentIndex];
+            const second = coordinates[segmentIndex + 1];
+            const easting = first[0] + (second[0] - first[0]) * fraction;
+            const northing = first[1] + (second[1] - first[1]) * fraction;
+            samples.push({
+              distance,
+              elevation: elevationAt(easting, northing, raster),
+            });
+          }
+          return { samples, totalLength };
+        }
+
+        function renderProfileChart(profile) {
+          const valid = profile.samples.filter((sample) => sample.elevation !== null);
+          if (!valid.length) {
+            throw new Error("O traçado não cruzou pixels válidos do DSM.");
+          }
+          const minimum = Math.min(...valid.map((sample) => sample.elevation));
+          const maximum = Math.max(...valid.map((sample) => sample.elevation));
+          const chartWidth = 900;
+          const chartHeight = 320;
+          const margin = { top: 22, right: 22, bottom: 48, left: 72 };
+          const plotWidth = chartWidth - margin.left - margin.right;
+          const plotHeight = chartHeight - margin.top - margin.bottom;
+          const elevationRange = Math.max(maximum - minimum, 1);
+          const minimumAxis = minimum - elevationRange * 0.08;
+          const maximumAxis = maximum + elevationRange * 0.08;
+          const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          svg.setAttribute("viewBox", `0 0 ${chartWidth} ${chartHeight}`);
+          svg.setAttribute("role", "img");
+          svg.setAttribute(
+            "aria-label",
+            `Perfil de ${lengthFormatter.format(profile.totalLength)} metros, elevações entre ${formatElevation(minimum)} e ${formatElevation(maximum)}`
+          );
+
+          for (let tick = 0; tick <= 4; tick += 1) {
+            const y = margin.top + plotHeight * tick / 4;
+            const value = maximumAxis - (maximumAxis - minimumAxis) * tick / 4;
+            const grid = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            grid.setAttribute("x1", margin.left);
+            grid.setAttribute("x2", chartWidth - margin.right);
+            grid.setAttribute("y1", y);
+            grid.setAttribute("y2", y);
+            grid.setAttribute("stroke", "#e1e6e0");
+            svg.append(grid);
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("x", margin.left - 9);
+            label.setAttribute("y", y + 4);
+            label.setAttribute("text-anchor", "end");
+            label.textContent = formatElevation(value);
+            svg.append(label);
+          }
+
+          let pathData = "";
+          let drawingSegment = false;
+          profile.samples.forEach((sample, index) => {
+            if (sample.elevation === null) {
+              drawingSegment = false;
+              return;
+            }
+            const x = margin.left + plotWidth * index / (profile.samples.length - 1);
+            const y = margin.top + plotHeight
+              * (maximumAxis - sample.elevation) / (maximumAxis - minimumAxis);
+            pathData += `${drawingSegment ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)} `;
+            drawingSegment = true;
+          });
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          line.setAttribute("d", pathData.trim());
+          line.setAttribute("fill", "none");
+          line.setAttribute("stroke", "#c2410c");
+          line.setAttribute("stroke-width", "3");
+          line.setAttribute("stroke-linejoin", "round");
+          line.setAttribute("stroke-linecap", "round");
+          svg.append(line);
+
+          const distanceLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          distanceLabel.setAttribute("x", margin.left + plotWidth / 2);
+          distanceLabel.setAttribute("y", chartHeight - 8);
+          distanceLabel.setAttribute("text-anchor", "middle");
+          distanceLabel.textContent = `Distância (m) · 0 a ${lengthFormatter.format(profile.totalLength)}`;
+          svg.append(distanceLabel);
+          profileChart.replaceChildren(svg);
+          profileSummary.textContent = `Distância: ${lengthFormatter.format(profile.totalLength)} m · menor cota: ${formatElevation(minimum)} · maior cota: ${formatElevation(maximum)} · ${valid.length} amostras válidas.`;
+          profileResult.hidden = false;
+          profileResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+
+        mosaicLayer.once("load", () => {
+          mapMessage.hidden = true;
+        });
+        mosaicLayer.once("error", () => {
+          mapMessage.hidden = false;
+          mapMessage.classList.add("error");
+          mapMessage.textContent = "Não foi possível carregar o mosaico aéreo.";
+        });
+        return map;
+      }
+
+      document.querySelectorAll(".switcher button").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".switcher button").forEach((tab) => {
+            tab.setAttribute("aria-pressed", String(tab === button));
+          });
+          document.querySelectorAll(".panel").forEach((panel) => {
+            panel.hidden = panel.id !== button.dataset.panel;
+          });
+          if (button.dataset.panel === "map-panel" && window.siteMap) {
+            window.setTimeout(() => window.siteMap.invalidateSize(), 0);
+          }
+        });
       });
-      if (viewer.loaded) finishLoading();
+
+      terrain.addEventListener("load", () => {
+        terrainMessage.hidden = true;
+        terrain.classList.add("loaded");
+      });
+      terrain.addEventListener("error", () => {
+        terrainMessage.classList.add("error");
+        terrainMessage.textContent = "Não foi possível carregar o modelo 3D.";
+      });
+
+      loadMap()
+        .catch((error) => {
+          mapMessage.hidden = false;
+          mapMessage.classList.add("error");
+          mapMessage.textContent = error instanceof Error
+            ? error.message
+            : "Não foi possível carregar os dados do mapa.";
+          console.error(error);
+        });
+
     </script>
   </body>
 </html>

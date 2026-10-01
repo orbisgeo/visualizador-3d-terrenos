@@ -1,49 +1,74 @@
-# Visualizador 3D
+# Visualizador topográfico
 
-Página estática para exibir modelos `.glb` interativos em desktop e celular.
-O modelo Mari1 é o exemplo padrão; nenhum framework ou etapa de build é
-necessário.
+Aplicação estática otimizada para celular com:
+
+- mapa do mosaico georreferenciado e camadas liga/desliga;
+- curvas de nível pretas e rotuladas pelo campo `ELEV`; aproxime para tocá-las
+  e consultar a cota sem confundir linhas vizinhas;
+- corpos hídricos em azul;
+- poligonal e quadro de áreas/perímetros em SIRGAS 2000 / UTM 25S;
+- ferramenta para traçar e consultar perfis de elevação do DSM;
+- modelo 3D texturizado gerado a partir do DSM, com relevo vertical 2×.
 
 Visualização publicada: <https://visualizador-3d-terrenos.vercel.app/>.
 
-## Ver localmente
+## Preparar estes dados
 
-Abra um terminal nesta pasta e execute:
+Instale `numpy` e `rasterio` no Python normal. Coloque os arquivos-fonte na
+pasta pai do repositório:
+
+```text
+dsm_cm.tif
+mosaico.tif
+cv.geojson
+poligonal.geojson
+corpos_hidricos.geojson
+```
+
+Execute na pasta do repositório:
+
+```powershell
+python prepare_site_data.py
+```
+
+O preparo recorta o DSM para a cobertura do mosaico, reduz o mosaico para no
+máximo 4096 pixels no maior lado e o codifica em WebP para economizar dados no
+celular. As curvas mantêm o campo `ELEV` e são simplificadas com tolerância de
+12 cm. As medidas de área e perímetro são calculadas em metros no CRS projetado
+EPSG:31985. Também são preparados uma grade compacta para os perfis e a
+camada hidrográfica. O DSM intermediário `data/dsm_cm.npy` fica fora do Git.
+
+Abra `build_terrain.py` no Blender e execute-o para gerar
+`data/terreno_cm.glb` com a malha do DSM e o mosaico incorporado. O relevo
+vertical é exagerado em 2× para facilitar a leitura e deve ser considerado ao
+interpretar as proporções. O Python embutido do Blender precisa ter NumPy
+disponível. Na pasta de trabalho original, o `blender_terrain.py` da pasta pai
+é um atalho para esse builder.
+
+## Executar localmente
+
+Na pasta do repositório, execute:
 
 ```powershell
 python -m http.server 8000
 ```
 
-Abra <http://localhost:8000>. O `.glb` deve ficar na mesma pasta do `index.html`
-ou em uma pasta interna referenciada pela URL.
+Abra <http://localhost:8000>. Sirva a pasta por HTTP; abrir o `index.html`
+diretamente como arquivo pode impedir o carregamento dos dados.
 
-## Reutilizar com outro modelo
+## Reutilizar o visualizador 3D
 
-Use o modelo padrão em `./terreno_mari1.glb`, ou passe outro endereço `.glb`
-pela query string:
+A aba de modelo pode carregar um `.glb` público diferente:
 
 ```text
-https://SEU-SITE.vercel.app/?model=./modelos/outro.glb&title=Outro%20terreno
+https://visualizador-3d-terrenos.vercel.app/?model=./data/outro.glb&title=Outro%20terreno
 ```
 
-`model` aceita um caminho relativo a esta página ou uma URL HTTP/HTTPS pública.
-Para carregar um arquivo hospedado em outro domínio, esse servidor precisa
-permitir requisições CORS do domínio desta página. `title` é opcional.
+`model` aceita caminho relativo ou URL HTTPS; `title` atualiza o texto
+alternativo da página. Um modelo hospedado em outro domínio precisa permitir
+CORS. Arquivos estáticos individuais têm limite de 100 MB no Vercel Hobby.
 
-Para incluir modelos próprios no repositório, coloque-os em `modelos/` e
-referencie o caminho na URL. O GitHub não aceita arquivos acima de 100 MB e o
-Vercel Hobby limita cada arquivo estático a 100 MB; para modelos maiores, use
-armazenamento/CDN de arquivos e passe a URL pública por `model`.
+## Publicação
 
-## Publicar
-
-O projeto é estático: importe este repositório no Vercel com o diretório raiz
-`web` (ou importe o próprio repositório, caso `web` seja a raiz dele), sem
-comando de build e sem diretório de saída especial. Cada push na branch
-principal publica uma nova versão.
-
-## Arquivos
-
-- `index.html`: visualizador reutilizável.
-- `terreno_mari1.glb`: modelo de demonstração com mosaico incorporado.
-- `vercel.json`: configuração de URLs e cache para os modelos.
+O repositório é o diretório raiz do projeto estático no Vercel. Cada push para
+`main` publica uma atualização automaticamente. Não há etapa de build.

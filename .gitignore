@@ -1,3 +1,4 @@
 .vercel
 .env*
-.env*
+data/dsm_cm.npy
+*.aux.xml
