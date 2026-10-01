@@ -7,7 +7,8 @@ Aplicação estática otimizada para celular com:
   e consultar a cota sem confundir linhas vizinhas;
 - corpos hídricos em azul;
 - poligonal e quadro de áreas/perímetros em SIRGAS 2000 / UTM 25S;
-- ferramenta para traçar e consultar perfis de elevação do DSM;
+- ferramenta para traçar e consultar perfis de elevação do DSM, com eixo
+  horizontal expandido e navegável por toque, mouse ou teclado;
 - modelo 3D texturizado gerado a partir do DSM, com relevo vertical 2×.
 
 Visualização publicada: <https://visualizador-3d-terrenos.vercel.app/>.

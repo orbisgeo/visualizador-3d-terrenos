@@ -28,52 +28,73 @@
         min-width: 320px;
         min-height: 100vh;
         margin: 0;
-        padding: max(16px, env(safe-area-inset-top)) 16px max(22px, env(safe-area-inset-bottom));
+        padding: max(6px, env(safe-area-inset-top)) 12px max(6px, env(safe-area-inset-bottom));
       }
 
-      main { width: min(1120px, 100%); margin: 0 auto; }
+      main {
+        display: flex;
+        width: min(1800px, 100%);
+        height: calc(100svh - 12px);
+        flex-direction: column;
+        margin: 0 auto;
+      }
 
-      header { padding: 4px 2px 16px; }
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 8px 14px;
+        padding: 0 2px 5px;
+      }
 
       .eyebrow {
-        margin: 0 0 6px;
+        margin: 0;
         color: var(--green);
-        font-size: 0.72rem;
+        font-size: 0.62rem;
         font-weight: 800;
         letter-spacing: 0.13em;
         text-transform: uppercase;
+        white-space: nowrap;
       }
 
       h1 {
         margin: 0;
-        font-size: clamp(1.4rem, 4vw, 2.05rem);
+        font-size: clamp(1rem, 2vw, 1.3rem);
         font-weight: 720;
         letter-spacing: -0.04em;
+        white-space: nowrap;
       }
 
-      .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 0.91rem; }
+      .subtitle {
+        margin: 0 0 0 auto;
+        color: var(--muted);
+        font-size: 0.7rem;
+        text-align: right;
+      }
 
       .report {
-        margin: 0 0 14px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        margin: 0 0 5px;
         overflow: hidden;
         border: 1px solid var(--line);
-        border-radius: 14px;
+        border-radius: 9px;
         background: #fff;
-        box-shadow: 0 2px 9px #1a2b1e08;
+        box-shadow: 0 1px 4px #1a2b1e08;
       }
 
       .report-heading {
         display: flex;
-        align-items: baseline;
+        align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        padding: 12px 16px 8px;
+        gap: 8px;
+        padding: 5px 9px;
       }
 
-      .report-heading h2 { margin: 0; font-size: 0.97rem; }
-      .report-heading span { color: var(--muted); font-size: 0.75rem; }
+      .report-heading h2 { margin: 0; font-size: 0.72rem; }
+      .report-heading span { color: var(--muted); font-size: 0.65rem; }
 
-      .table-wrap { overflow-x: auto; }
+      .table-wrap { min-width: 0; overflow-x: auto; }
 
       table {
         width: 100%;
@@ -82,33 +103,44 @@
         font-variant-numeric: tabular-nums;
       }
 
-      th, td { padding: 9px 16px; border-top: 1px solid #edf0ec; }
+      thead { display: none; }
+      th, td { padding: 4px 8px; border-top: 0; }
       th { color: var(--muted); font-size: 0.7rem; font-weight: 700; }
-      td { font-size: 0.84rem; }
+      td { font-size: 0.72rem; white-space: nowrap; }
       td:nth-child(n+2), th:nth-child(n+2) { text-align: right; }
-      td small { display: block; margin-top: 2px; color: var(--muted); font-size: 0.74rem; }
-      tbody tr:last-child td { font-weight: 750; background: #f7f9f6; }
+      td small { display: inline; margin-left: 4px; color: var(--muted); font-size: 0.65rem; }
+      tbody tr:last-child td { font-weight: 750; background: transparent; }
+
+      .map-toolbar {
+        display: flex;
+        min-height: 38px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 5px;
+      }
 
       .switcher {
         display: flex;
         width: fit-content;
         gap: 4px;
-        margin: 0 0 10px;
-        padding: 4px;
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 2px;
         border: 1px solid var(--line);
-        border-radius: 11px;
+        border-radius: 8px;
         background: #e8ece7;
       }
 
       .switcher button {
-        min-height: 42px;
-        padding: 0 18px;
+        min-height: 32px;
+        padding: 0 12px;
         border: 0;
-        border-radius: 8px;
+        border-radius: 6px;
         background: transparent;
         color: #4e5a52;
         font: inherit;
-        font-size: 0.86rem;
+        font-size: 0.74rem;
         font-weight: 700;
         cursor: pointer;
         touch-action: manipulation;
@@ -122,12 +154,14 @@
 
       .panel {
         position: relative;
-        height: clamp(440px, 62svh, 760px);
+        height: 0;
+        min-height: min(400px, calc(100svh - 120px));
+        flex: 1 1 0;
         overflow: hidden;
         border: 1px solid #d8dfd8;
-        border-radius: 15px;
+        border-radius: 10px;
         background: #e6ebe5;
-        box-shadow: 0 8px 28px #1b2d2010;
+        box-shadow: 0 3px 12px #1b2d2010;
       }
 
       .panel[hidden] { display: none; }
@@ -170,19 +204,20 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 8px;
-        margin: 0 0 10px;
+        gap: 5px;
+        min-width: 0;
+        margin: 0;
       }
 
       .profile-tools button, .profile-close {
-        min-height: 42px;
-        padding: 0 13px;
+        min-height: 34px;
+        padding: 0 10px;
         border: 1px solid #cbd5cb;
-        border-radius: 9px;
+        border-radius: 7px;
         background: #fff;
         color: #26382b;
         font: inherit;
-        font-size: 0.82rem;
+        font-size: 0.72rem;
         font-weight: 700;
         cursor: pointer;
         touch-action: manipulation;
@@ -200,19 +235,26 @@
       }
 
       .profile-tools p {
-        flex: 1 1 220px;
+        flex: 0 1 auto;
+        max-width: 30vw;
         margin: 0;
         color: var(--muted);
-        font-size: 0.78rem;
+        font-size: 0.67rem;
       }
 
-      .profile-result { padding-bottom: 12px; }
+      .profile-result { display: block; min-height: 0; flex: 0 0 auto; padding-bottom: 8px; }
       .profile-result[hidden] { display: none; }
       .profile-result .report-heading { align-items: center; }
-      .profile-close { min-height: 36px; padding: 0 10px; }
-      #profile-summary { margin: 0 16px 8px; color: var(--muted); font-size: 0.8rem; }
-      #profile-chart { padding: 0 8px; }
-      #profile-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+      .profile-close { min-height: 30px; padding: 0 9px; }
+      #profile-summary { margin: 0 10px 5px; color: var(--muted); font-size: 0.72rem; }
+      #profile-chart {
+        max-width: 100%;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        padding: 0 8px;
+        touch-action: pan-x pan-y;
+      }
+      #profile-chart svg { display: block; width: 200%; max-width: none; height: auto; overflow: visible; }
       #profile-chart text { font-family: inherit; font-size: 13px; fill: #536056; }
 
       .profile-path {
@@ -256,29 +298,35 @@
       model-viewer.loaded::part(default-progress-bar) { display: none; }
 
       .footer {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: 7px 16px;
-        padding: 11px 2px 0;
-        color: var(--muted);
-        font-size: 0.76rem;
+        display: none;
       }
 
       @media (max-width: 560px) {
-        body { padding-right: 10px; padding-left: 10px; }
-        header { padding-bottom: 12px; }
-        .report { margin-bottom: 10px; }
-        .report-heading { padding: 10px 11px 7px; }
-        th, td { padding: 8px 9px; }
-        td, th { font-size: 0.72rem; }
-        td small { font-size: 0.67rem; }
-        .switcher { width: 100%; }
-        .switcher button { flex: 1; }
-        .panel { height: min(64svh, 680px); min-height: 390px; border-radius: 12px; }
-        .leaflet-control-zoom a { width: 46px !important; height: 46px !important; line-height: 46px !important; }
-        .layer-control { min-width: 145px; gap: 6px; padding: 9px 10px; font-size: 0.75rem; }
-        .footer { font-size: 0.71rem; }
+        body { padding-right: 7px; padding-left: 7px; }
+        main { height: calc(100svh - 12px); }
+        header { gap: 3px 8px; }
+        .eyebrow { display: none; }
+        h1 { font-size: 0.95rem; }
+        .subtitle { display: none; }
+        .report { grid-template-columns: auto minmax(0, 1fr); margin-bottom: 4px; }
+        .report-heading { padding: 4px 6px; }
+        .report-heading h2 { font-size: 0.64rem; }
+        .report-heading span { display: none; }
+        th, td { padding: 4px 5px; }
+        td { font-size: 0.66rem; }
+        td small, #area-rows td:first-child { display: none; }
+        .map-toolbar { min-height: 34px; gap: 4px; margin-bottom: 4px; }
+        .switcher { gap: 1px; }
+        .switcher button { min-height: 30px; padding: 0 8px; font-size: 0.69rem; }
+        .profile-tools { gap: 3px; }
+        .profile-tools button { min-height: 32px; padding: 0 7px; font-size: 0.67rem; }
+        .profile-tools p { display: none; }
+        .panel { min-height: min(350px, calc(100svh - 120px)); border-radius: 8px; }
+        .leaflet-control-zoom a { width: 40px !important; height: 40px !important; line-height: 40px !important; }
+        .layer-control { min-width: 132px; gap: 4px; padding: 7px 8px; font-size: 0.7rem; }
+        .layer-control strong { font-size: 0.71rem; }
+        .layer-control label { min-height: 22px; }
+        .layer-control input { width: 16px; height: 16px; }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -296,7 +344,7 @@
 
       <section class="report" aria-labelledby="report-title">
         <div class="report-heading">
-          <h2 id="report-title">Quadro de áreas e perímetros</h2>
+          <h2 id="report-title">Área e perímetro</h2>
           <span>Medidas planas · EPSG:31985</span>
         </div>
         <div class="table-wrap">
@@ -311,16 +359,18 @@
         </div>
       </section>
 
-      <nav class="switcher" aria-label="Tipo de visualização">
-        <button type="button" data-panel="map-panel" aria-pressed="true">Mapa</button>
-        <button type="button" data-panel="terrain-panel" aria-pressed="false">Modelo 3D</button>
-      </nav>
+      <div class="map-toolbar">
+        <nav class="switcher" aria-label="Tipo de visualização">
+          <button type="button" data-panel="map-panel" aria-pressed="true">Mapa</button>
+          <button type="button" data-panel="terrain-panel" aria-pressed="false">Modelo 3D</button>
+        </nav>
 
-      <div class="profile-tools" aria-label="Ferramenta de perfil de elevação">
-        <button id="profile-start" class="primary" type="button">Traçar perfil</button>
-        <button id="profile-finish" type="button" hidden disabled>Concluir</button>
-        <button id="profile-cancel" type="button" hidden>Cancelar</button>
-        <p id="profile-status" role="status">Toque em “Traçar perfil” para marcar pontos no mapa.</p>
+        <div class="profile-tools" aria-label="Ferramenta de perfil de elevação">
+          <button id="profile-start" class="primary" type="button">Traçar perfil</button>
+          <button id="profile-finish" type="button" hidden disabled>Concluir</button>
+          <button id="profile-cancel" type="button" hidden>Cancelar</button>
+          <p id="profile-status" role="status">Toque em “Traçar perfil” para marcar pontos no mapa.</p>
+        </div>
       </div>
 
       <section id="map-panel" class="panel" aria-label="Mapa do levantamento">
@@ -334,7 +384,8 @@
           <button id="profile-close" class="profile-close" type="button" aria-label="Fechar perfil">Fechar</button>
         </div>
         <p id="profile-summary"></p>
-        <div id="profile-chart"></div>
+        <div id="profile-chart" tabindex="0" aria-label="Gráfico horizontalmente expansível; use as setas para percorrer">
+        </div>
       </section>
 
       <section id="terrain-panel" class="panel" aria-label="Modelo tridimensional do terreno" hidden>
@@ -746,6 +797,23 @@
           profileResult.hidden = true;
         });
 
+        profileChart.addEventListener("keydown", (event) => {
+          const pageSize = Math.max(120, profileChart.clientWidth * 0.8);
+          if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+            event.preventDefault();
+            profileChart.scrollBy({
+              left: event.key === "ArrowRight" ? pageSize : -pageSize,
+              behavior: "smooth",
+            });
+          } else if (event.key === "Home" || event.key === "End") {
+            event.preventDefault();
+            profileChart.scrollTo({
+              left: event.key === "End" ? profileChart.scrollWidth : 0,
+              behavior: "smooth",
+            });
+          }
+        });
+
         function mapPanelIsVisible() {
           return !document.querySelector("#map-panel").hidden;
         }
@@ -854,7 +922,7 @@
           }
           const minimum = Math.min(...valid.map((sample) => sample.elevation));
           const maximum = Math.max(...valid.map((sample) => sample.elevation));
-          const chartWidth = 900;
+          const chartWidth = 1800;
           const chartHeight = 320;
           const margin = { top: 22, right: 22, bottom: 48, left: 72 };
           const plotWidth = chartWidth - margin.left - margin.right;
@@ -910,14 +978,35 @@
           line.setAttribute("stroke-linecap", "round");
           svg.append(line);
 
+          for (let tick = 0; tick <= 4; tick += 1) {
+            const fraction = tick / 4;
+            const x = margin.left + plotWidth * fraction;
+            const grid = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            grid.setAttribute("x1", x);
+            grid.setAttribute("x2", x);
+            grid.setAttribute("y1", margin.top);
+            grid.setAttribute("y2", margin.top + plotHeight);
+            grid.setAttribute("stroke", "#edf0ec");
+            svg.append(grid);
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("x", x);
+            label.setAttribute("y", chartHeight - 29);
+            label.setAttribute(
+              "text-anchor",
+              tick === 0 ? "start" : tick === 4 ? "end" : "middle"
+            );
+            label.textContent = `${lengthFormatter.format(profile.totalLength * fraction)} m`;
+            svg.append(label);
+          }
+
           const distanceLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
           distanceLabel.setAttribute("x", margin.left + plotWidth / 2);
           distanceLabel.setAttribute("y", chartHeight - 8);
           distanceLabel.setAttribute("text-anchor", "middle");
-          distanceLabel.textContent = `Distância (m) · 0 a ${lengthFormatter.format(profile.totalLength)}`;
+          distanceLabel.textContent = "Distância (m)";
           svg.append(distanceLabel);
           profileChart.replaceChildren(svg);
-          profileSummary.textContent = `Distância: ${lengthFormatter.format(profile.totalLength)} m · menor cota: ${formatElevation(minimum)} · maior cota: ${formatElevation(maximum)} · ${valid.length} amostras válidas.`;
+          profileSummary.textContent = `Distância: ${lengthFormatter.format(profile.totalLength)} m · menor cota: ${formatElevation(minimum)} · maior cota: ${formatElevation(maximum)} · ${valid.length} amostras válidas. Deslize o gráfico para percorrer o eixo horizontal.`;
           profileResult.hidden = false;
           profileResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
