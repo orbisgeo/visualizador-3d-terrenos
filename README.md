@@ -7,8 +7,8 @@ Aplicação estática otimizada para celular com:
   e consultar a cota sem confundir linhas vizinhas;
 - corpos hídricos em azul;
 - poligonal e quadro de áreas/perímetros em SIRGAS 2000 / UTM 25S;
-- ferramenta para traçar e consultar perfis de elevação do DSM, com eixo
-  horizontal expandido e navegável por toque, mouse ou teclado;
+- perfil do terreno baseado no DTM filtrado, com interpolações a cada 0,5 m e
+  trechos visíveis/ocultos para observador a 1,7 m;
 
 Visualização publicada: <https://visualizador-3d-terrenos.vercel.app/>.
 
@@ -18,7 +18,7 @@ Instale `numpy` e `rasterio` no Python normal. Coloque os arquivos-fonte na
 pasta pai do repositório:
 
 ```text
-dsm_cm.tif
+dtm_cm.tif
 mosaico.tif
 cv.geojson
 poligonal.geojson
@@ -31,12 +31,16 @@ Execute na pasta do repositório:
 python prepare_site_data.py
 ```
 
-O preparo recorta o DSM para a cobertura do mosaico, reduz o mosaico para no
-máximo 4096 pixels no maior lado e o codifica em WebP para economizar dados no
-celular. As curvas mantêm o campo `ELEV` e são simplificadas com tolerância de
-12 cm. As medidas de área e perímetro são calculadas em metros no CRS projetado
-EPSG:31985. Também são preparados uma grade compacta para os perfis e a
-camada hidrográfica. O DSM intermediário `data/dsm_cm.npy` fica fora do Git.
+O perfil usa `dtm_cm.tif`, o modelo digital do terreno filtrado, e o interpola
+bilinearmente ao longo da linha; o início do traçado representa o observador,
+com altura dos olhos de 1,7 m. Os pontos visíveis e ocultos são separados pelo
+horizonte acumulado do relevo. O gráfico informa seu exagero vertical, portanto
+a forma desenhada não deve ser interpretada como uma perspectiva de câmera. O
+preparo reduz o mosaico para no máximo 4096 pixels no maior lado e o codifica
+em WebP para economizar dados no celular. As curvas mantêm o campo `ELEV` e
+são simplificadas com tolerância de 12 cm. As medidas de área e perímetro são
+calculadas em metros no CRS projetado EPSG:31985. Também são preparados uma
+grade compacta para perfis e a camada hidrográfica.
 
 ## Executar localmente
 

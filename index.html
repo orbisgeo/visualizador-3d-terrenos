@@ -418,13 +418,13 @@
       }
 
       async function loadMap() {
-        const [contours, boundary, hydrology, stats, dsmMetadata] = await Promise.all(
+        const [contours, boundary, hydrology, stats, dtmMetadata] = await Promise.all(
           [
             "contours.geojson",
             "boundary.geojson",
             "hydro.geojson",
             "site-stats.json",
-            "dsm_cm.json",
+            "dtm_cm.json",
           ].map((file) =>
             fetch(dataUrl(file)).then((response) => {
               if (!response.ok) throw new Error(`Falha ao carregar ${file}.`);
@@ -588,6 +588,15 @@
         map.on("click", (event) => {
           if (isDrawingProfile) {
             profileCoordinates.push([event.latlng.lng, event.latlng.lat]);
+            if (profileCoordinates.length === 1) {
+              L.circleMarker(event.latlng, {
+                radius: 6,
+                color: "#fff",
+                weight: 2,
+                fillColor: "#1d4ed8",
+                fillOpacity: 1,
+              }).addTo(profileLayer);
+            }
             profileLine.setLatLngs(profileCoordinates.map(([x, y]) => [y, x]));
             profileFinish.disabled = profileCoordinates.length < 2;
             profileStatus.textContent = `${profileCoordinates.length} pontos marcados. Adicione mais pontos ou conclua o perfil.`;
@@ -652,9 +661,9 @@
           profileResult.hidden = true;
           isDrawingProfile = true;
           profileLine = L.polyline([], {
-            className: "profile-path",
-            color: "#a318b5",
+            color: "#1d4ed8",
             weight: 3,
+            dashArray: "7 5",
           }).addTo(profileLayer);
           map.doubleClickZoom.disable();
           map.getContainer().style.cursor = "crosshair";
@@ -662,7 +671,7 @@
           profileFinish.hidden = false;
           profileFinish.disabled = true;
           profileCancel.hidden = false;
-          profileStatus.textContent = "Toque no mapa para marcar o início, o fim e os pontos intermediários.";
+          profileStatus.textContent = "O primeiro ponto será o observador (olhos a 1,7 m). Marque o caminho na direção que deseja analisar.";
         });
 
         profileFinish.addEventListener("click", async () => {
@@ -671,7 +680,7 @@
           profileStatus.textContent = "Calculando o perfil de elevação…";
           profileFinish.disabled = true;
           try {
-            profileRasterPromise ||= loadProfileRaster(dsmMetadata.profile_dem);
+            profileRasterPromise ||= loadProfileRaster(dtmMetadata.profile_grid);
             const raster = await profileRasterPromise;
             const samples = sampleProfile(profileCoordinates, raster);
             renderProfileChart(samples);
@@ -729,7 +738,7 @@
 
         function loadProfileRaster(metadata) {
           if (!metadata) {
-            return Promise.reject(new Error("Dados do DSM para perfil não encontrados."));
+            return Promise.reject(new Error("Dados do DTM para perfil não encontrados."));
           }
           return new Promise((resolve, reject) => {
             const image = new Image();
@@ -744,29 +753,53 @@
               }
               context.imageSmoothingEnabled = false;
               context.drawImage(image, 0, 0);
-              resolve({ metadata, pixels: context.getImageData(
-                0, 0, metadata.width, metadata.height
-              ).data });
+              resolve({
+                metadata,
+                pixels: context.getImageData(
+                  0, 0, metadata.width, metadata.height
+                ).data,
+              });
             };
-            image.onerror = () => reject(new Error("Não foi possível carregar o DSM para o perfil."));
-            image.src = dataUrl("profile-dem.png");
+            image.onerror = () => reject(new Error("Não foi possível carregar o DTM para o perfil."));
+            image.src = dataUrl("profile-dtm.png");
           });
         }
 
         function elevationAt(easting, northing, raster) {
           const { metadata, pixels } = raster;
-          const column = Math.round(
-            (easting - metadata.origin_x) / metadata.res_x - 0.5
-          );
-          const row = Math.round(
-            (northing - metadata.origin_y) / metadata.res_y - 0.5
-          );
-          if (column < 0 || column >= metadata.width || row < 0 || row >= metadata.height) {
+          const column = (easting - metadata.origin_x) / metadata.res_x - 0.5;
+          const row = (northing - metadata.origin_y) / metadata.res_y - 0.5;
+          const column0 = Math.floor(column);
+          const row0 = Math.floor(row);
+          const column1 = column0 + 1;
+          const row1 = row0 + 1;
+          if (
+            column0 < 0 || column1 >= metadata.width
+            || row0 < 0 || row1 >= metadata.height
+          ) {
             return null;
           }
-          const offset = (row * metadata.width + column) * 4;
-          if (pixels[offset + 2] < 128) return null;
-          const encoded = (pixels[offset] << 8) | pixels[offset + 1];
+
+          const dx = column - column0;
+          const dy = row - row0;
+          const offsets = [
+            (row0 * metadata.width + column0) * 4,
+            (row0 * metadata.width + column1) * 4,
+            (row1 * metadata.width + column0) * 4,
+            (row1 * metadata.width + column1) * 4,
+          ];
+          const weights = [
+            (1 - dx) * (1 - dy),
+            dx * (1 - dy),
+            (1 - dx) * dy,
+            dx * dy,
+          ];
+          let encoded = 0;
+          for (let index = 0; index < offsets.length; index += 1) {
+            const offset = offsets[index];
+            if (pixels[offset + 2] < 128) return null;
+            encoded += ((pixels[offset] << 8) | pixels[offset + 1]) * weights[index];
+          }
           return metadata.z_min + (encoded / 65535) * (metadata.z_max - metadata.z_min);
         }
 
@@ -782,7 +815,15 @@
           }
           if (!totalLength) throw new Error("Marque pontos separados para traçar o perfil.");
 
-          const sampleCount = Math.min(2000, Math.max(2, Math.ceil(totalLength / 1.5) + 1));
+          const sampleSpacing = Math.min(
+            0.5,
+            Math.abs(raster.metadata.res_x),
+            Math.abs(raster.metadata.res_y)
+          );
+          const sampleCount = Math.min(
+            12000,
+            Math.max(2, Math.ceil(totalLength / sampleSpacing) + 1)
+          );
           const samples = [];
           let segmentIndex = 0;
           let segmentStart = 0;
@@ -808,16 +849,44 @@
               elevation: elevationAt(easting, northing, raster),
             });
           }
-          return { samples, totalLength };
+          if (samples[0].elevation === null) {
+            throw new Error("O início do perfil precisa estar sobre terreno válido do DTM.");
+          }
+
+          const observerEyeElevation = samples[0].elevation + 1.7;
+          let horizonSlope = Number.NEGATIVE_INFINITY;
+          let terrainIsKnown = true;
+          samples[0].visible = true;
+          for (let index = 1; index < samples.length; index += 1) {
+            const sample = samples[index];
+            if (sample.elevation === null) {
+              terrainIsKnown = false;
+            }
+            if (!terrainIsKnown) {
+              sample.visible = null;
+              continue;
+            }
+            const slope = (sample.elevation - observerEyeElevation) / sample.distance;
+            sample.visible = slope > horizonSlope + 1e-9;
+            horizonSlope = Math.max(horizonSlope, slope);
+          }
+
+          return { samples, totalLength, observerEyeElevation, sampleSpacing };
         }
 
         function renderProfileChart(profile) {
           const valid = profile.samples.filter((sample) => sample.elevation !== null);
           if (!valid.length) {
-            throw new Error("O traçado não cruzou pixels válidos do DSM.");
+            throw new Error("O traçado não cruzou pixels válidos do DTM.");
           }
-          const minimum = Math.min(...valid.map((sample) => sample.elevation));
-          const maximum = Math.max(...valid.map((sample) => sample.elevation));
+          const minimum = Math.min(
+            profile.observerEyeElevation,
+            ...valid.map((sample) => sample.elevation)
+          );
+          const maximum = Math.max(
+            profile.observerEyeElevation,
+            ...valid.map((sample) => sample.elevation)
+          );
           const chartWidth = 1800;
           const chartHeight = 320;
           const margin = { top: 22, right: 22, bottom: 48, left: 72 };
@@ -852,27 +921,78 @@
             svg.append(label);
           }
 
-          let pathData = "";
-          let drawingSegment = false;
-          profile.samples.forEach((sample, index) => {
-            if (sample.elevation === null) {
-              drawingSegment = false;
-              return;
-            }
-            const x = margin.left + plotWidth * index / (profile.samples.length - 1);
-            const y = margin.top + plotHeight
-              * (maximumAxis - sample.elevation) / (maximumAxis - minimumAxis);
-            pathData += `${drawingSegment ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)} `;
-            drawingSegment = true;
+          const screenPoint = (sample, index) => ({
+            x: margin.left + plotWidth * index / (profile.samples.length - 1),
+            y: margin.top + plotHeight
+              * (maximumAxis - sample.elevation) / (maximumAxis - minimumAxis),
           });
-          const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
-          line.setAttribute("d", pathData.trim());
-          line.setAttribute("fill", "none");
-          line.setAttribute("stroke", "#c2410c");
-          line.setAttribute("stroke-width", "3");
-          line.setAttribute("stroke-linejoin", "round");
-          line.setAttribute("stroke-linecap", "round");
-          svg.append(line);
+          profile.visiblePaths = [];
+          profile.occludedPaths = [];
+          profile.unknownPaths = [];
+          let activePath = null;
+          let previousPoint = null;
+          for (let index = 0; index < profile.samples.length; index += 1) {
+            const sample = profile.samples[index];
+            if (sample.elevation === null) {
+              activePath = null;
+              previousPoint = null;
+              continue;
+            }
+            const currentPoint = screenPoint(sample, index);
+            const visibility = sample.visible === null
+              ? "unknown"
+              : sample.visible ? "visible" : "occluded";
+            if (!activePath || activePath.visibility !== visibility) {
+              activePath = {
+                visibility,
+                pathData: previousPoint
+                  ? `M${previousPoint.x.toFixed(2)} ${previousPoint.y.toFixed(2)} `
+                  : `M${currentPoint.x.toFixed(2)} ${currentPoint.y.toFixed(2)} `,
+              };
+              profile[`${visibility}Paths`].push(activePath);
+              activePath.pathData += previousPoint
+                ? `L${currentPoint.x.toFixed(2)} ${currentPoint.y.toFixed(2)} `
+                : "";
+            } else {
+              activePath.pathData += `L${currentPoint.x.toFixed(2)} ${currentPoint.y.toFixed(2)} `;
+            }
+            previousPoint = currentPoint;
+          }
+
+          for (const [visibility, color, label] of [
+            ["occluded", "#c2413a", "Trecho oculto pelo relevo"],
+            ["visible", "#15803d", "Trecho visível ao observador"],
+            ["unknown", "#6b7280", "Visibilidade indeterminada por falta de terreno"],
+          ]) {
+            const paths = profile[`${visibility}Paths`];
+            for (const segment of paths) {
+              const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+              line.setAttribute("d", segment.pathData.trim());
+              line.setAttribute("fill", "none");
+              line.setAttribute("stroke", color);
+              line.setAttribute("stroke-width", "3");
+              line.setAttribute("stroke-linejoin", "round");
+              line.setAttribute("stroke-linecap", "round");
+              line.setAttribute("aria-label", label);
+              svg.append(line);
+            }
+          }
+
+          const observerGround = screenPoint(profile.samples[0], 0);
+          const observerEye = screenPoint(
+            { elevation: profile.observerEyeElevation },
+            0
+          );
+          const eyeMarker = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          eyeMarker.setAttribute("x1", observerEye.x);
+          eyeMarker.setAttribute("x2", observerEye.x);
+          eyeMarker.setAttribute("y1", observerEye.y);
+          eyeMarker.setAttribute("y2", observerGround.y);
+          eyeMarker.setAttribute("stroke", "#1d4ed8");
+          eyeMarker.setAttribute("stroke-width", "2");
+          eyeMarker.setAttribute("stroke-dasharray", "4 3");
+          eyeMarker.setAttribute("aria-label", "Altura dos olhos do observador: 1,7 m");
+          svg.append(eyeMarker);
 
           for (let tick = 0; tick <= 4; tick += 1) {
             const fraction = tick / 4;
@@ -902,7 +1022,13 @@
           distanceLabel.textContent = "Distância (m)";
           svg.append(distanceLabel);
           profileChart.replaceChildren(svg);
-          profileSummary.textContent = `Distância: ${lengthFormatter.format(profile.totalLength)} m · menor cota: ${formatElevation(minimum)} · maior cota: ${formatElevation(maximum)} · ${valid.length} amostras válidas. Deslize o gráfico para percorrer o eixo horizontal.`;
+          const visibleCount = valid.filter((sample) => sample.visible).length;
+          const occludedCount = valid.filter((sample) => sample.visible === false).length;
+          const unknownCount = valid.filter((sample) => sample.visible === null).length;
+          const verticalExaggeration = (
+            plotHeight / (maximumAxis - minimumAxis)
+          ) / (plotWidth / profile.totalLength);
+          profileSummary.textContent = `Distância: ${lengthFormatter.format(profile.totalLength)} m · terreno: ${formatElevation(minimum)}–${formatElevation(maximum)} · visível: ${visibleCount} pontos · oculto: ${occludedCount} pontos · sem visada calculada: ${unknownCount} · olhos a 1,7 m · exagero vertical do gráfico: ${verticalExaggeration.toFixed(1)}×. Verde = visível; vermelho = oculto; cinza = sem dado entre o observador e o alvo.`;
           profileResult.hidden = false;
           profileResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }

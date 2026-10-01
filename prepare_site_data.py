@@ -19,7 +19,7 @@ from rasterio.windows import Window, from_bounds
 
 MAX_MOSAIC_EDGE = 4096
 CONTOUR_TOLERANCE_M = 0.12
-PROFILE_STEP = 4
+PROFILE_STEP = 2
 
 
 def simplify_line(
@@ -149,49 +149,47 @@ def prepare_mosaic(source: Path, output: Path) -> dict[str, float | int]:
         }
 
 
-def prepare_dsm(
+def prepare_dtm(
     source: Path,
     mosaic_source: Path,
-    mosaic_metadata: dict[str, float | int],
     output_dir: Path,
 ) -> dict[str, Any]:
-    with rasterio.open(source) as dsm, rasterio.open(mosaic_source) as mosaic:
-        if dsm.crs != mosaic.crs:
-            raise ValueError("O DSM e o mosaico precisam usar o mesmo CRS.")
+    with rasterio.open(source) as dtm, rasterio.open(mosaic_source) as mosaic:
+        if dtm.crs != mosaic.crs:
+            raise ValueError("O DTM e o mosaico precisam usar o mesmo CRS.")
         overlap = (
-            max(dsm.bounds.left, mosaic.bounds.left),
-            max(dsm.bounds.bottom, mosaic.bounds.bottom),
-            min(dsm.bounds.right, mosaic.bounds.right),
-            min(dsm.bounds.top, mosaic.bounds.top),
+            max(dtm.bounds.left, mosaic.bounds.left),
+            max(dtm.bounds.bottom, mosaic.bounds.bottom),
+            min(dtm.bounds.right, mosaic.bounds.right),
+            min(dtm.bounds.top, mosaic.bounds.top),
         )
         left, bottom, right, top = overlap
         if left >= right or bottom >= top:
-            raise ValueError("DSM e mosaico não têm área em comum.")
+            raise ValueError("DTM e mosaico não têm área em comum.")
 
-        window = from_bounds(left, bottom, right, top, transform=dsm.transform)
+        window = from_bounds(left, bottom, right, top, transform=dtm.transform)
         window = window.round_offsets().round_lengths().intersection(
-            Window(0, 0, dsm.width, dsm.height)
+            Window(0, 0, dtm.width, dtm.height)
         )
-        values = dsm.read(1, window=window).astype(np.float32)
+        values = dtm.read(1, window=window).astype(np.float32)
         valid = np.isfinite(values)
-        if dsm.nodata is not None:
-            valid &= values != dsm.nodata
+        if dtm.nodata is not None:
+            valid &= values != dtm.nodata
         if not valid.any():
-            raise ValueError("O recorte do DSM não contém elevações válidas.")
+            raise ValueError("O recorte do DTM não contém elevações válidas.")
 
         values[~valid] = np.nan
-        transform = dsm.window_transform(window)
-        np.save(output_dir / "dsm_cm.npy", values)
-        profile = write_profile_dem(
+        transform = dtm.window_transform(window)
+        profile = write_profile_grid(
             values,
             valid,
             transform,
             float(np.nanmin(values)),
             float(np.nanmax(values)),
-            output_dir / "profile-dem.png",
+            output_dir / "profile-dtm.png",
         )
         return {
-            "crs": dsm.crs.to_string(),
+            "crs": dtm.crs.to_string(),
             "width": int(values.shape[1]),
             "height": int(values.shape[0]),
             "res_x": transform.a,
@@ -202,12 +200,11 @@ def prepare_dsm(
             "z_max": float(np.nanmax(values)),
             "valid_pixel_count": int(valid.sum()),
             "total_pixel_count": int(values.size),
-            "mosaic": mosaic_metadata,
-            "profile_dem": profile,
+            "profile_grid": profile,
         }
 
 
-def write_profile_dem(
+def write_profile_grid(
     values: np.ndarray,
     valid: np.ndarray,
     transform: Affine,
@@ -354,7 +351,7 @@ def main() -> None:
         type=Path,
         default=Path(__file__).resolve().parent.parent,
         help=(
-            "Folder containing dsm_cm.tif, mosaico.tif, cv.geojson, "
+            "Folder containing dtm_cm.tif, mosaico.tif, cv.geojson, "
             "poligonal.geojson and corpos_hidricos.geojson"
         ),
     )
@@ -368,10 +365,9 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     mosaic = prepare_mosaic(args.source_dir / "mosaico.tif", args.output_dir / "mosaico.webp")
-    dsm = prepare_dsm(
-        args.source_dir / "dsm_cm.tif",
+    dtm = prepare_dtm(
+        args.source_dir / "dtm_cm.tif",
         args.source_dir / "mosaico.tif",
-        mosaic,
         args.output_dir,
     )
     contours = prepare_contours(
@@ -385,8 +381,8 @@ def main() -> None:
         args.output_dir / "hydro.geojson",
     )
 
-    (args.output_dir / "dsm_cm.json").write_text(
-        json.dumps(dsm, ensure_ascii=False, indent=2), encoding="utf-8"
+    (args.output_dir / "dtm_cm.json").write_text(
+        json.dumps(dtm, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     (args.output_dir / "site-stats.json").write_text(
         json.dumps(
@@ -408,7 +404,7 @@ def main() -> None:
         encoding="utf-8",
     )
     print(f"Mosaico: {mosaic['width']} x {mosaic['height']} px")
-    print(f"DSM: {dsm['width']} x {dsm['height']} px, {dsm['valid_pixel_count']} pixels válidos")
+    print(f"DTM: {dtm['width']} x {dtm['height']} px, {dtm['valid_pixel_count']} pixels válidos")
     print(f"Curvas ELEV: {contours}")
     print(f"Corpos hídricos: {hydrology} feições")
     print(
