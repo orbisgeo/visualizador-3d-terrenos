@@ -10,6 +10,7 @@ Aplicação estática otimizada para celular com:
 - perfil do terreno baseado no DTM filtrado, com interpolações a cada 0,5 m e
   trechos visíveis/ocultos para observador a 1,7 m; percorra o gráfico com o
   cursor ou controle deslizante para localizar a cota correspondente no mapa;
+  o gráfico abre sobre a parte inferior do mapa sem interromper o pan.
 
 Visualização publicada: <https://visualizador-3d-terrenos.vercel.app/>.
 

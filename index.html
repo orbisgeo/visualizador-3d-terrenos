@@ -209,7 +209,18 @@
         font-size: 0.67rem;
       }
 
-      .profile-result { display: block; min-height: 0; flex: 0 0 auto; padding-bottom: 8px; }
+      .profile-result {
+        position: fixed;
+        z-index: 1000;
+        right: max(12px, calc((100vw - 1800px) / 2));
+        bottom: max(6px, env(safe-area-inset-bottom));
+        left: max(12px, calc((100vw - 1800px) / 2));
+        display: block;
+        max-height: min(55svh, 520px);
+        overflow-y: auto;
+        padding-bottom: 8px;
+        box-shadow: 0 4px 18px #17251b33;
+      }
       .profile-result[hidden] { display: none; }
       .profile-result .report-heading { align-items: center; }
       .profile-close { min-height: 30px; padding: 0 9px; }
@@ -606,6 +617,11 @@
         map.on("zoomend", updateLabels);
         map.fitBounds(boundaryLayer.getBounds(), { padding: [26, 26] });
         window.siteMap = map;
+        const mapResizeObserver = new ResizeObserver(() => {
+          map.invalidateSize({ pan: false, debounceMoveend: true });
+        });
+        mapResizeObserver.observe(map.getContainer());
+        map.once("unload", () => mapResizeObserver.disconnect());
 
         map.on("click", (event) => {
           if (isDrawingProfile) {
@@ -1143,7 +1159,6 @@
           ) / (plotWidth / profile.totalLength);
           profileSummary.textContent = `Distância: ${lengthFormatter.format(profile.totalLength)} m · terreno: ${formatElevation(minimum)}–${formatElevation(maximum)} · visível: ${visibleCount} pontos · oculto: ${occludedCount} pontos · sem visada calculada: ${unknownCount} · olhos a 1,7 m · exagero vertical do gráfico: ${verticalExaggeration.toFixed(1)}×. Verde = visível; vermelho = oculto; cinza = sem dado entre o observador e o alvo.`;
           profileResult.hidden = false;
-          profileResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
 
         mosaicLayer.once("load", () => {
