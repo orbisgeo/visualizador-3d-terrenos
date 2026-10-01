@@ -8,7 +8,8 @@ Aplicação estática otimizada para celular com:
 - corpos hídricos em azul;
 - poligonal e quadro de áreas/perímetros em SIRGAS 2000 / UTM 25S;
 - perfil do terreno baseado no DTM filtrado, com interpolações a cada 0,5 m e
-  trechos visíveis/ocultos para observador a 1,7 m;
+  trechos visíveis/ocultos para observador a 1,7 m; percorra o gráfico com o
+  cursor ou controle deslizante para localizar a cota correspondente no mapa;
 
 Visualização publicada: <https://visualizador-3d-terrenos.vercel.app/>.
 
@@ -36,6 +37,8 @@ bilinearmente ao longo da linha; o início do traçado representa o observador,
 com altura dos olhos de 1,7 m. Os pontos visíveis e ocultos são separados pelo
 horizonte acumulado do relevo. O gráfico informa seu exagero vertical, portanto
 a forma desenhada não deve ser interpretada como uma perspectiva de câmera. O
+cursor e o controle deslizante do gráfico mostram a distância e a cota da
+amostra selecionada, destacando sua posição correspondente sobre o mapa. O
 preparo reduz o mosaico para no máximo 4096 pixels no maior lado e o codifica
 em WebP para economizar dados no celular. As curvas mantêm o campo `ELEV` e
 são simplificadas com tolerância de 12 cm. As medidas de área e perímetro são

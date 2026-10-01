@@ -223,6 +223,18 @@
       }
       #profile-chart svg { display: block; width: 200%; max-width: none; height: auto; overflow: visible; }
       #profile-chart text { font-family: inherit; font-size: 13px; fill: #536056; }
+      #profile-chart svg { cursor: crosshair; }
+      .profile-scrubber {
+        display: grid;
+        grid-template-columns: auto minmax(80px, 1fr) minmax(130px, auto);
+        align-items: center;
+        gap: 8px;
+        margin: 2px 10px 0;
+        color: var(--muted);
+        font-size: 0.7rem;
+      }
+      .profile-scrubber input { width: 100%; accent-color: #1d4ed8; }
+      .profile-scrubber output { color: #26382b; font-variant-numeric: tabular-nums; }
 
       .profile-path {
         stroke: #a318b5;
@@ -269,6 +281,8 @@
         .profile-tools { gap: 3px; margin-left: auto; }
         .profile-tools button { min-height: 32px; padding: 0 7px; font-size: 0.67rem; }
         .profile-tools p { display: none; }
+        .profile-scrubber { grid-template-columns: auto minmax(70px, 1fr); gap: 4px 8px; }
+        .profile-scrubber output { grid-column: 1 / -1; }
         .panel { min-height: min(350px, calc(100svh - 120px)); border-radius: 8px; }
         .leaflet-control-zoom a { width: 40px !important; height: 40px !important; line-height: 40px !important; }
         .layer-control { min-width: 132px; gap: 4px; padding: 7px 8px; font-size: 0.7rem; }
@@ -329,6 +343,11 @@
         <p id="profile-summary"></p>
         <div id="profile-chart" tabindex="0" aria-label="Gráfico horizontalmente expansível; use as setas para percorrer">
         </div>
+        <label class="profile-scrubber">
+          <span>Percorrer</span>
+          <input id="profile-scrubber" type="range" min="0" max="1" value="0" step="1" aria-label="Percorrer pontos do perfil">
+          <output id="profile-scrubber-value" for="profile-scrubber">Toque ou arraste no gráfico</output>
+        </label>
       </section>
 
     </main>
@@ -345,6 +364,8 @@
       const profileResult = document.querySelector("#profile-result");
       const profileSummary = document.querySelector("#profile-summary");
       const profileChart = document.querySelector("#profile-chart");
+      const profileScrubber = document.querySelector("#profile-scrubber");
+      const profileScrubberValue = document.querySelector("#profile-scrubber-value");
       const profileClose = document.querySelector("#profile-close");
       const areaFormatter = new Intl.NumberFormat("pt-BR", {
         minimumFractionDigits: 2,
@@ -499,6 +520,7 @@
         let profileCoordinates = [];
         let profileRasterPromise;
         let profileLine;
+        let profileCursorMarker;
 
         for (const feature of contours.features) {
           const coordinates = feature.geometry.coordinates;
@@ -657,6 +679,7 @@
 
         profileStart.addEventListener("click", () => {
           profileLayer.clearLayers();
+          profileCursorMarker = null;
           profileCoordinates = [];
           profileResult.hidden = true;
           isDrawingProfile = true;
@@ -846,6 +869,8 @@
             const northing = first[1] + (second[1] - first[1]) * fraction;
             samples.push({
               distance,
+              easting,
+              northing,
               elevation: elevationAt(easting, northing, raster),
             });
           }
@@ -1021,7 +1046,95 @@
           distanceLabel.setAttribute("text-anchor", "middle");
           distanceLabel.textContent = "Distância (m)";
           svg.append(distanceLabel);
+
+          const cursor = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          cursor.setAttribute("pointer-events", "none");
+          const cursorLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          cursorLine.setAttribute("y1", margin.top);
+          cursorLine.setAttribute("y2", margin.top + plotHeight);
+          cursorLine.setAttribute("stroke", "#172554");
+          cursorLine.setAttribute("stroke-width", "2");
+          cursorLine.setAttribute("stroke-dasharray", "5 4");
+          const cursorPoint = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          cursorPoint.setAttribute("r", "7");
+          cursorPoint.setAttribute("fill", "#fbbf24");
+          cursorPoint.setAttribute("stroke", "#172554");
+          cursorPoint.setAttribute("stroke-width", "2");
+          cursor.append(cursorLine, cursorPoint);
+          svg.append(cursor);
+
+          profileScrubber.min = "0";
+          profileScrubber.max = String(profile.samples.length - 1);
+          profileScrubber.value = "0";
+          const updateCursor = (requestedIndex) => {
+            const index = Math.max(
+              0,
+              Math.min(profile.samples.length - 1, Math.round(requestedIndex))
+            );
+            const sample = profile.samples[index];
+            const point = sample.elevation === null ? null : screenPoint(sample, index);
+            const x = margin.left + plotWidth * index / (profile.samples.length - 1);
+            cursorLine.setAttribute("x1", x);
+            cursorLine.setAttribute("x2", x);
+            cursorPoint.setAttribute("cx", x);
+            if (point) {
+              cursorPoint.setAttribute("cy", point.y);
+              cursorPoint.removeAttribute("visibility");
+            } else {
+              cursorPoint.setAttribute("visibility", "hidden");
+            }
+            profileScrubber.value = String(index);
+            const locationText = sample.elevation === null
+              ? `${lengthFormatter.format(sample.distance)} m · terreno sem dado`
+              : `${lengthFormatter.format(sample.distance)} m · ${formatElevation(sample.elevation)} · ${sample.visible === null ? "sem visada" : sample.visible ? "visível" : "oculto"}`;
+            profileScrubberValue.textContent = locationText;
+            profileScrubber.setAttribute("aria-valuetext", locationText);
+
+            if (sample.elevation === null) {
+              if (profileCursorMarker) {
+                profileCursorMarker.setStyle({ opacity: 0, fillOpacity: 0 });
+              }
+              return;
+            }
+            if (!profileCursorMarker) {
+              profileCursorMarker = L.circleMarker(
+                [sample.northing, sample.easting],
+                {
+                  radius: 8,
+                  color: "#172554",
+                  weight: 2,
+                  fillColor: "#fbbf24",
+                  fillOpacity: 1,
+                  interactive: false,
+                }
+              ).addTo(profileLayer);
+              profileCursorMarker.bindTooltip("", { direction: "top", offset: [0, -8] });
+            }
+            profileCursorMarker.setLatLng([sample.northing, sample.easting]);
+            profileCursorMarker.setStyle({ opacity: 1, fillOpacity: 1 });
+            profileCursorMarker.setTooltipContent(
+              `${lengthFormatter.format(sample.distance)} m · ${formatElevation(sample.elevation)}`
+            );
+            profileCursorMarker.openTooltip();
+          };
+
+          profileScrubber.oninput = () => updateCursor(Number(profileScrubber.value));
+          const updateCursorFromPointer = (event) => {
+            const transform = svg.getScreenCTM();
+            if (!transform) return;
+            const pointer = svg.createSVGPoint();
+            pointer.x = event.clientX;
+            pointer.y = event.clientY;
+            const chartX = pointer.matrixTransform(transform.inverse()).x;
+            const fraction = (chartX - margin.left) / plotWidth;
+            updateCursor(fraction * (profile.samples.length - 1));
+          };
+          svg.addEventListener("pointerdown", updateCursorFromPointer);
+          svg.addEventListener("pointermove", (event) => {
+            if (event.pointerType === "mouse") updateCursorFromPointer(event);
+          });
           profileChart.replaceChildren(svg);
+          updateCursor(0);
           const visibleCount = valid.filter((sample) => sample.visible).length;
           const occludedCount = valid.filter((sample) => sample.visible === false).length;
           const unknownCount = valid.filter((sample) => sample.visible === null).length;
