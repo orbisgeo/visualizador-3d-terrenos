@@ -1109,6 +1109,7 @@
             if (sample.elevation === null) {
               if (profileCursorMarker) {
                 profileCursorMarker.setStyle({ opacity: 0, fillOpacity: 0 });
+                profileCursorMarker.closeTooltip();
               }
               return;
             }
@@ -1124,9 +1125,19 @@
                   interactive: false,
                 }
               ).addTo(profileLayer);
+              profileCursorMarker.bindTooltip("", {
+                direction: "top",
+                offset: [0, -8],
+                permanent: true,
+                className: "profile-cursor-tooltip",
+              });
             }
             profileCursorMarker.setLatLng([sample.northing, sample.easting]);
             profileCursorMarker.setStyle({ opacity: 1, fillOpacity: 1 });
+            profileCursorMarker.setTooltipContent(
+              `${lengthFormatter.format(sample.distance)} m · ${formatElevation(sample.elevation)}`
+            );
+            profileCursorMarker.openTooltip();
           };
 
           profileScrubber.oninput = () => updateCursor(Number(profileScrubber.value));
